@@ -861,6 +861,7 @@ router.post('/generate', jsonParser, function (request, response) {
             bodyParams['user'] = uuidv4();
         }
     } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.OPENROUTER) {
+        console.log('OpenRouter对话开始');
         apiUrl = 'https://openrouter.ai/api/v1';
         apiKey = readSecret(request.user.directories, SECRET_KEYS.OPENROUTER);
         // OpenRouter needs to pass the Referer and X-Title: https://openrouter.ai/docs#requests
@@ -1029,6 +1030,7 @@ router.post('/generate', jsonParser, function (request, response) {
             const fetchResponse = await fetch(endpointUrl, config);
 
             if (request.body.stream) {
+                console.log('打印fetchResponse');
                 console.log('Streaming request in progress');
                 forwardFetchResponse(fetchResponse, response);
                 return;
@@ -1038,6 +1040,7 @@ router.post('/generate', jsonParser, function (request, response) {
                 /** @type {any} */
                 let json = await fetchResponse.json();
                 response.send(json);
+                console.log('打印对话json');
                 console.log(json);
                 console.log(json?.choices?.[0]?.message);
             } else if (fetchResponse.status === 429 && retries > 0) {

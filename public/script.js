@@ -1938,6 +1938,7 @@ export async function reloadCurrentChat() {
  * Send the message currently typed into the chat box.
  */
 export async function sendTextareaMessage() {
+    console.log('点击发送按钮,开始发送');
     if (is_send_press) return;
     if (isExecutingCommandsFromChatInput) return;
     if (this_edit_mes_id) return; // don't proceed if editing a message
@@ -3476,7 +3477,7 @@ function removeLastMessage() {
  * @typedef {{automatic_trigger?: boolean, force_name2?: boolean, quiet_prompt?: string, quietToLoud?: boolean, skipWIAN?: boolean, force_chid?: number, signal?: AbortSignal, quietImage?: string, quietName?: string, depth?: number }} GenerateOptions
  */
 export async function Generate(type, { automatic_trigger, force_name2, quiet_prompt, quietToLoud, skipWIAN, force_chid, signal, quietImage, quietName, depth = 0 } = {}, dryRun = false) {
-    console.log('Generate entered');
+    console.log('生成已开始');
     setGenerationProgress(0);
     generation_started = new Date();
 
@@ -3492,6 +3493,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     const isInstruct = power_user.instruct.enabled && main_api !== 'openai';
     const isImpersonate = type == 'impersonate';
 
+    console.log('开始处理命令');
     if (!(dryRun || type == 'regenerate' || type == 'swipe' || type == 'quiet')) {
         const interruptedByCommand = await processCommands(String($('#send_textarea').val()));
 
@@ -3501,7 +3503,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
             return Promise.resolve();
         }
     }
-
+    console.log('处理命令完成');
     // Occurs only if the generation is not aborted due to slash commands execution
     await eventSource.emit(event_types.GENERATION_AFTER_COMMANDS, type, { automatic_trigger, force_name2, quiet_prompt, quietToLoud, skipWIAN, force_chid, signal, quietImage }, dryRun);
 
@@ -3517,9 +3519,10 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     }
 
     if (!dryRun) {
+        console.log('开始ping服务器');
         // Ping server to make sure it is still alive
         const pingResult = await pingServer();
-
+        console.log('ping服务器完成', pingResult);
         if (!pingResult) {
             unblockGeneration(type);
             toastr.error(t`Verify that the server is running and accessible.`, t`ST Server cannot be reached`);
@@ -3533,6 +3536,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     }
 
     if (selected_group && !is_group_generating) {
+        console.log('开始生成群组');
         if (!dryRun) {
             // Returns the promise that generateGroupWrapper returns; resolves when generation is done
             return generateGroupWrapper(false, type, { quiet_prompt, force_chid, signal: abortController.signal, quietImage });
@@ -3577,7 +3581,6 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         is_send_press = false;
         return Promise.resolve();
     }
-
     let textareaText;
     if (type !== 'regenerate' && type !== 'swipe' && type !== 'quiet' && !isImpersonate && !dryRun) {
         is_send_press = true;
@@ -3594,6 +3597,8 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
             await eventSource.emit(event_types.MESSAGE_DELETED, chat.length);
         }
     }
+    console.log('处理聊天完成');
+
 
     const isContinue = type == 'continue';
 
@@ -3692,6 +3697,8 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         coreChat.pop();
     }
 
+    console.log('coreChat', coreChat);
+
     coreChat = await Promise.all(coreChat.map(async (chatItem, index) => {
         let message = chatItem.mes;
         let regexType = chatItem.is_user ? regex_placement.USER_INPUT : regex_placement.AI_OUTPUT;
@@ -3782,14 +3789,20 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     // Set non-WI AN
     setFloatingPrompt();
     // Add persona description to prompt
+    console.log('开始添加persona描述');
     addPersonaDescriptionExtensionPrompt();
+    console.log('persona描述添加完成');
 
     // Add WI to prompt (and also inject WI to AN value via hijack)
     // Make quiet prompt available for WIAN
+    console.log('开始设置quiet_prompt');
     setExtensionPrompt('QUIET_PROMPT', quiet_prompt || '', extension_prompt_types.IN_PROMPT, 0, true);
+    console.log('quiet_prompt设置完成');
     const chatForWI = coreChat.map(x => world_info_include_names ? `${x.name}: ${x.mes}` : x.mes).reverse();
     const { worldInfoString, worldInfoBefore, worldInfoAfter, worldInfoExamples, worldInfoDepth } = await getWorldInfoPrompt(chatForWI, this_max_context, dryRun);
+    console.log('worldInfoString', worldInfoString);
     setExtensionPrompt('QUIET_PROMPT', '', extension_prompt_types.IN_PROMPT, 0, true);
+    console.log('worldInfoBefore', worldInfoBefore);
 
     // Add message example WI
     for (const example of worldInfoExamples) {
@@ -3926,8 +3939,9 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         mesExamplesRaw: mesExamplesRawArray.join(''),
     };
 
+    console.log('开始渲染故事字符串', JSON.stringify(storyStringParams));
     const storyString = renderStoryString(storyStringParams);
-
+    console.log('故事字符串渲染完成');
     // Story string rendered, safe to remove
     if (power_user.strip_examples) {
         mesExamplesArray = [];
@@ -4088,7 +4102,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
 
     generatedPromptCache += cyclePrompt;
     if (generatedPromptCache.length == 0 || type === 'continue') {
-        console.debug('generating prompt');
+        console.log('generating prompt');
         chatString = '';
         arrMes = arrMes.reverse();
         arrMes.forEach(function (item, i, arr) {
@@ -4366,14 +4380,17 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     }
 
     let finalPrompt = getCombinedPrompt(false);
+    console.log('生成最终的提示:', JSON.stringify(finalPrompt));
 
     const eventData = { prompt: finalPrompt, dryRun: dryRun };
     await eventSource.emit(event_types.GENERATE_AFTER_COMBINE_PROMPTS, eventData);
     finalPrompt = eventData.prompt;
 
+
+
     let maxLength = Number(amount_gen); // how many tokens the AI will be requested to generate
     let thisPromptBits = [];
-
+    console.log('开始生成数据');
     let generate_data;
     switch (main_api) {
         case 'koboldhorde':
@@ -4575,6 +4592,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
      * @throws {Error} Throws an error if the response data contains an error message
      */
     async function onSuccess(data) {
+        console.log('成功接收到大模型的回复', data);
         if (!data) return;
 
         if (data?.fromStream) {
@@ -5378,6 +5396,7 @@ function setInContextMessages(lastmsg, type) {
  * @throws {Error|object}
  */
 export async function sendGenerationRequest(type, data) {
+    console.log('开始发送请求');
     if (main_api === 'openai') {
         return await sendOpenAIRequest(type, data.prompt, abortController.signal);
     }
@@ -9125,11 +9144,13 @@ async function removeCharacterFromUI() {
 }
 
 async function newAssistantChat() {
+    console.log('开始创建新助手聊天');
     await clearChat();
     chat.splice(0, chat.length);
     chat_metadata = {};
     setCharacterName(neutralCharacterName);
     sendSystemMessage(system_message_types.ASSISTANT_NOTE);
+    console.log('新助手聊天创建完成');
 }
 
 function doTogglePanels() {
